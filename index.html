@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Briar Hollow — A Time Loop</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    user-select: none;
+  }
+  #gameWrapper {
+    position: relative;
+    width: 900px;
+    height: 520px;
+  }
+  canvas {
+    display: block;
+    border: 1px solid #1a2a3a;
+    image-rendering: pixelated;
+  }
+  #ui {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+  #dayCounter {
+    position: absolute;
+    top: 14px; left: 18px;
+    color: #8ab4c8;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+  #dayNumber {
+    font-size: 22px;
+    color: #c8dde8;
+    letter-spacing: 2px;
+    display: block;
+    margin-top: 3px;
+  }
+  #controls {
+    position: absolute;
+    bottom: 14px; right: 16px;
+    color: #445566;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-align: right;
+    line-height: 1.8;
+  }
+  #narrative {
+    position: absolute;
+    bottom: 60px; left: 50%; transform: translateX(-50%);
+    color: #a0b8c8;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-align: center;
+    width: 600px;
+    opacity: 0;
+    transition: opacity 0.8s;
+    text-shadow: 0 0 12px #1a3344;
+    pointer-events: none;
+  }
+  #narrative.visible { opacity: 1; }
+  #overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000a14;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #8ab4c8;
+    font-family: 'Courier New', monospace;
+    transition: opacity 1.2s;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #overlay h1 {
+    font-size: 28px;
+    letter-spacing: 8px;
+    color: #c8dde8;
+    margin-bottom: 8px;
+    font-weight: normal;
+  }
+  #overlay .subtitle {
+    font-size: 10px;
+    letter-spacing: 5px;
+    color: #445566;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+  }
+  #overlay .story {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #6688aa;
+    line-height: 2;
+    text-align: center;
+    max-width: 500px;
+    margin-bottom: 40px;
+  }
+  #overlay .prompt {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: #334455;
+    animation: blink 2s infinite;
+    text-transform: uppercase;
+  }
+  #loopOverlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000a14;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #8ab4c8;
+    font-family: 'Courier New', monospace;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s;
+  }
+  #loopOverlay.visible { opacity: 1; pointer-events: all; }
+  #loopOverlay .loop-day {
+    font-size: 11px;
+    letter-spacing: 5px;
+    color: #334455;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  #loopOverlay .loop-msg {
+    font-size: 22px;
+    letter-spacing: 4px;
+    color: #c8dde8;
+    margin-bottom: 8px;
+    font-weight: normal;
+  }
+  #loopOverlay .loop-hint {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #445566;
+    margin-top: 20px;
+    max-width: 480px;
+    text-align: center;
+    line-height: 2;
+  }
+  #loopOverlay .loop-prompt {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: #334455;
+    margin-top: 36px;
+    animation: blink 2s infinite;
+    text-transform: uppercase;
+  }
+  #endingOverlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000a14;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #8ab4c8;
+    font-family: 'Courier New', monospace;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1.5s;
+  }
+  #endingOverlay.visible { opacity: 1; pointer-events: all; }
+  #endingOverlay .end-title {
+    font-size: 28px;
+    letter-spacing: 8px;
+    color: #c8dde8;
+    margin-bottom: 24px;
+    font-weight: normal;
+  }
+  #endingOverlay .end-text {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #6688aa;
+    line-height: 2.2;
+    text-align: center;
+    max-width: 520px;
+    margin-bottom: 36px;
+  }
+  #endingOverlay .end-prompt {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: #334455;
+    animation: blink 2s infinite;
+    text-transform: uppercase;
+  }
+  @keyframes blink {
+    0%,100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div id="gameWrapper">
+  <canvas id="gameCanvas" width="900" height="520"></canvas>
+
+  <!-- HUD -->
+  <div id="ui">
+    <div id="dayCounter">
+      night
+      <span id="dayNumber">DAY 1</span>
+    </div>
+    <div id="controls">
+      ← → / A D — move<br>
+      SPACE / ↑ — jump<br>
+      reach the door
+    </div>
+    <div id="narrative"></div>
+  </div>
+
+  <!-- Title Screen -->
+  <div id="overlay">
+    <h1>BRIAR HOLLOW</h1>
+    <div class="subtitle">a time loop</div>
+    <div class="story">
+      Anders Reale wakes up at midnight.<br>
+      The town is quiet. It's always quiet.<br>
+      Something is going to happen at dawn.<br>
+      It already has. Seven times.
+    </div>
+    <div class="prompt">— press any key —</div>
+  </div>
+
+  <!-- Loop Screen -->
+  <div id="loopOverlay">
+    <div class="loop-day" id="loopDayLabel">day 2 begins</div>
+    <div class="loop-msg" id="loopMsg">THE LOOP RESETS</div>
+    <div class="loop-hint" id="loopHint"></div>
+    <div class="loop-prompt">— press any key to continue —</div>
+  </div>
+
+  <!-- Ending Screen -->
+  <div id="endingOverlay">
+    <div class="end-title">DAWN</div>
+    <div class="end-text" id="endText"></div>
+    <div class="end-prompt">— press any key to restart —</div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  BRIAR HOLLOW — A Time Loop Platformer
+//  Single-file vanilla JS. No external dependencies.
+// ============================================================
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const W = canvas.width;
+const H = canvas.height;
+
+// ── State ────────────────────────────────────────────────────
+let day = 1;
+let gameState = 'title'; // title | playing | looping | ending
+let keys = {};
+let jumpPressed = false;
+let narrativeTimer = null;
+
+// ── Narrative lines per day ──────────────────────────────────
+const HINTS = [
+  "",  // day 1 — no hint
+  "The streetlight near the diner flickers. You remember now.",
+  "Third night. The gap by the pharmacy was never there before.",
+  "You moved the trash can. It helped. Why did it help?",
+  "Day five. The shadow on the rooftop. Don't look up.",
+  "Six loops. The door at the end — it was always unlocked.",
+  "Last chance. You know what to do. Don't stop moving.",
+];
+
+const LOOP_MSGS = [
+  "",
+  "The loop tightens.",
+  "Again. And again.",
+  "Memory is the only currency.",
+  "What changes? What doesn't?",
+  "Almost. Almost.",
+  "This is the last time.",
+];
+
+// ── Camera ───────────────────────────────────────────────────
+const camera = { x: 0, y: 0 };
+const LEVEL_W = 3200;
+
+// ── Player ───────────────────────────────────────────────────
+const PLAYER_W = 18;
+const PLAYER_H = 28;
+const GRAVITY = 0.52;
+const JUMP_FORCE = -11.5;
+const SPEED = 3.4;
+
+let player = {};
+
+function resetPlayer() {
+  player = {
+    x: 60, y: 380,
+    vx: 0, vy: 0,
+    onGround: false,
+    coyoteTime: 0,
+    facing: 1,
+    // animation
+    walkFrame: 0,
+    walkTimer: 0,
+    dead: false,
+    deathTimer: 0,
+  };
+}
+
+// ── Platform + hazard generation ─────────────────────────────
+let platforms = [];
+let hazards   = [];
+let streetlights = [];
+let buildings  = [];
+let endDoor    = {};
+let particles  = [];
+let signs      = [];
+
+// Each day has slightly different hazard/platform configuration
+function buildLevel(d) {
+  platforms = [];
+  hazards   = [];
+  streetlights = [];
+  buildings  = [];
+  particles  = [];
+  signs      = [];
+
+  // Ground segments (with intentional gaps)
+  const ground = [
+    { x: 0,    w: 500  },
+    { x: 560,  w: 280  },  // gap at 500
+    { x: 900,  w: 220  },
+    { x: 1180, w: 300  },  // gap at 1120+
+    { x: 1560, w: 360  },
+    { x: 2000, w: 200  },
+    { x: 2260, w: 300  },
+    { x: 2620, w: 580  },
+  ];
+  ground.forEach(g => {
+    platforms.push({ x: g.x, y: 460, w: g.w, h: 60, type: 'ground' });
+  });
+
+  // Elevated platforms
+  const elevated = [
+    { x: 200, y: 380, w: 90  },
+    { x: 370, y: 320, w: 80  },
+    { x: 620, y: 380, w: 100 },
+    { x: 780, y: 300, w: 70  },
+    { x: 960, y: 370, w: 110 },
+    { x: 1100, y: 290, w: 90 },
+    { x: 1260, y: 360, w: 80 },
+    { x: 1380, y: 280, w: 100},
+    { x: 1600, y: 360, w: 90 },
+    { x: 1750, y: 295, w: 80 },
+    { x: 1920, y: 370, w: 100},
+    { x: 2080, y: 290, w: 90 },
+    { x: 2320, y: 360, w: 100},
+    { x: 2460, y: 280, w: 80 },
+    { x: 2680, y: 360, w: 100},
+    { x: 2820, y: 290, w: 90 },
+    { x: 2960, y: 360, w: 110},
+    { x: 3060, y: 280, w: 90 },
+  ];
+  elevated.forEach(p => {
+    platforms.push({ x: p.x, y: p.y, w: p.w, h: 14, type: 'ledge' });
+  });
+
+  // Day-specific platform tweaks — remove/add one platform per day
+  if (d >= 3) {
+    // Extra gap in day 3+: remove a ground segment (simulated by adding a narrow blocker on y=460 but we just shift the gap visual)
+    platforms.push({ x: 1480, y: 360, w: 70, h: 14, type: 'ledge' });
+  }
+  if (d >= 5) {
+    platforms.push({ x: 2180, y: 310, w: 80, h: 14, type: 'ledge' });
+  }
+
+  // Streetlights (purely visual + cast light)
+  for (let lx = 80; lx < LEVEL_W; lx += 220 + (d * 3)) {
+    streetlights.push({ x: lx, on: Math.random() > (0.15 + d * 0.04) });
+  }
+  // Always flicker the one near x=700 on day 2+
+  if (d >= 2) {
+    streetlights.push({ x: 700, on: true, flicker: true });
+  }
+
+  // Buildings (background)
+  const bh = [120, 90, 160, 110, 140, 80, 130, 170, 100, 150, 90, 160];
+  for (let i = 0; i < 28; i++) {
+    buildings.push({
+      x: i * 115,
+      w: 80 + (i % 4) * 12,
+      h: bh[i % bh.length],
+      windows: Math.floor(Math.random() * 6),
+      layer: (i % 2 === 0) ? 1 : 0,
+    });
+  }
+
+  // Hazards — moving horizontal patrol obstacles
+  const hazardDefs = [
+    { x: 300,  y: 435, w: 24, h: 18, range: 80,  speed: 0.9, label: 'shadow' },
+    { x: 640,  y: 355, w: 20, h: 16, range: 60,  speed: 1.1, label: 'shadow' },
+    { x: 970,  y: 345, w: 22, h: 16, range: 70,  speed: 1.3, label: 'shadow' },
+    { x: 1200, y: 435, w: 24, h: 18, range: 100, speed: 0.8, label: 'figure' },
+    { x: 1600, y: 435, w: 24, h: 18, range: 90,  speed: 1.4, label: 'shadow' },
+    { x: 1900, y: 345, w: 22, h: 16, range: 80,  speed: 1.2, label: 'shadow' },
+    { x: 2100, y: 265, w: 20, h: 16, range: 60,  speed: 1.5, label: 'shadow' },
+    { x: 2350, y: 335, w: 22, h: 16, range: 70,  speed: 1.0, label: 'figure' },
+    { x: 2700, y: 435, w: 24, h: 18, range: 100, speed: 1.1, label: 'shadow' },
+    { x: 2900, y: 265, w: 20, h: 16, range: 60,  speed: 1.6, label: 'shadow' },
+  ];
+
+  // Each day adds 1-2 extra hazards and speeds up existing ones
+  hazardDefs.forEach((h, i) => {
+    const spd = h.speed + (d - 1) * 0.12;
+    hazards.push({
+      ...h,
+      speed: spd,
+      ox: h.x,
+      dir: 1,
+      t: i * 0.7,
+    });
+  });
+
+  // Day 3+: falling debris (static dropped items on specific platforms)
+  if (d >= 3) {
+    hazards.push({ x: 1130, y: 250, w: 16, h: 16, range: 0, speed: 0, type: 'debris', ox: 1130, dir: 1, t: 0 });
+  }
+  if (d >= 4) {
+    hazards.push({ x: 1760, y: 255, w: 14, h: 14, range: 0, speed: 0, type: 'debris', ox: 1760, dir: 1, t: 0 });
+  }
+
+  // Environmental signs (dialogue / lore)
+  signs = [
+    { x: 150,  y: 440, text: "BRIAR HOLLOW", sub: "pop. 412" },
+    { x: 840,  y: 440, text: "PINE ST DINER", sub: "closed" },
+    { x: 1450, y: 440, text: "PHARMACY",      sub: "24h" },
+    { x: 2200, y: 440, text: "TOWN HALL",     sub: "" },
+    { x: 2900, y: 440, text: "EXIT",          sub: "→" },
+  ];
+
+  // End door
+  endDoor = { x: LEVEL_W - 80, y: 380, w: 38, h: 80 };
+}
+
+// ── Particles ─────────────────────────────────────────────────
+function spawnParticles(x, y, color, n = 10) {
+  for (let i = 0; i < n; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 4,
+      vy: -Math.random() * 4 - 1,
+      life: 0.8 + Math.random() * 0.4,
+      maxLife: 1.2,
+      r: 2 + Math.random() * 3,
+      color,
+    });
+  }
+}
+
+// ── Narrative display ─────────────────────────────────────────
+function showNarrative(text, duration = 3500) {
+  const el = document.getElementById('narrative');
+  el.textContent = text;
+  el.classList.add('visible');
+  clearTimeout(narrativeTimer);
+  narrativeTimer = setTimeout(() => el.classList.remove('visible'), duration);
+}
+
+// ── Flicker helper ────────────────────────────────────────────
+let flickerState = true;
+let flickerTimer = 0;
+
+// ── Camera update ─────────────────────────────────────────────
+function updateCamera() {
+  const targetX = player.x - W / 3;
+  camera.x += (targetX - camera.x) * 0.1;
+  camera.x = Math.max(0, Math.min(LEVEL_W - W, camera.x));
+}
+
+// ── Collision helpers ─────────────────────────────────────────
+function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+// ── Player update ─────────────────────────────────────────────
+function updatePlayer(dt) {
+  if (player.dead) {
+    player.deathTimer += dt;
+    if (player.deathTimer > 1.8) respawnPlayer();
+    return;
+  }
+
+  // Input
+  const left  = keys['ArrowLeft']  || keys['a'] || keys['A'];
+  const right = keys['ArrowRight'] || keys['d'] || keys['D'];
+  const jump  = keys['ArrowUp']    || keys['Space'] || keys[' '];
+
+  player.vx = 0;
+  if (left)  { player.vx = -SPEED; player.facing = -1; }
+  if (right) { player.vx =  SPEED; player.facing =  1; }
+
+  // Coyote time
+  if (player.onGround) player.coyoteTime = 0.12;
+  else player.coyoteTime = Math.max(0, player.coyoteTime - dt);
+
+  if (jump && jumpPressed && player.coyoteTime > 0) {
+    player.vy = JUMP_FORCE;
+    player.coyoteTime = 0;
+    jumpPressed = false;
+  }
+
+  // Gravity
+  player.vy += GRAVITY;
+  if (player.vy > 18) player.vy = 18;
+
+  // Move X
+  player.x += player.vx;
+  player.x = Math.max(0, player.x);
+
+  // Collide X with platforms
+  for (const p of platforms) {
+    if (rectOverlap(player.x, player.y, PLAYER_W, PLAYER_H, p.x, p.y, p.w, p.h)) {
+      if (player.vx > 0) player.x = p.x - PLAYER_W;
+      else if (player.vx < 0) player.x = p.x + p.w;
+    }
+  }
+
+  // Move Y
+  player.onGround = false;
+  player.y += player.vy;
+
+  // Collide Y with platforms
+  for (const p of platforms) {
+    if (rectOverlap(player.x, player.y, PLAYER_W, PLAYER_H, p.x, p.y, p.w, p.h)) {
+      if (player.vy > 0) {
+        player.y = p.y - PLAYER_H;
+        player.vy = 0;
+        player.onGround = true;
+      } else if (player.vy < 0) {
+        player.y = p.y + p.h;
+        player.vy = 0;
+      }
+    }
+  }
+
+  // Fall off screen → die
+  if (player.y > H + 60) killPlayer();
+
+  // Walk animation
+  if (player.vx !== 0 && player.onGround) {
+    player.walkTimer += dt;
+    if (player.walkTimer > 0.1) { player.walkTimer = 0; player.walkFrame ^= 1; }
+  } else {
+    player.walkFrame = 0;
+  }
+
+  // Check hazard collision
+  for (const h of hazards) {
+    if (h.type === 'debris') {
+      if (rectOverlap(player.x, player.y, PLAYER_W, PLAYER_H, h.x, h.y, h.w, h.h)) {
+        killPlayer(); return;
+      }
+    } else {
+      if (rectOverlap(player.x, player.y, PLAYER_W, PLAYER_H, h.x, h.y, h.w, h.h)) {
+        killPlayer(); return;
+      }
+    }
+  }
+
+  // Check end door
+  if (rectOverlap(player.x, player.y, PLAYER_W, PLAYER_H,
+      endDoor.x, endDoor.y, endDoor.w, endDoor.h)) {
+    triggerLoopEnd();
+  }
+}
+
+function killPlayer() {
+  if (player.dead) return;
+  player.dead = true;
+  player.deathTimer = 0;
+  spawnParticles(player.x + PLAYER_W/2, player.y + PLAYER_H/2, '#4477aa', 14);
+  showNarrative("...");
+}
+
+function respawnPlayer() {
+  resetPlayer();
+}
+
+// ── Hazard update ─────────────────────────────────────────────
+function updateHazards(dt) {
+  for (const h of hazards) {
+    if (h.type === 'debris') continue;
+    h.t += dt;
+    h.x = h.ox + Math.sin(h.t * h.speed) * h.range;
+  }
+}
+
+// ── Particles update ──────────────────────────────────────────
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x  += p.vx;
+    p.y  += p.vy;
+    p.vy += 0.15;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+// ── Stars ─────────────────────────────────────────────────────
+const STARS = [];
+for (let i = 0; i < 120; i++) {
+  STARS.push({
+    x: Math.random() * LEVEL_W,
+    y: 10 + Math.random() * 180,
+    r: 0.5 + Math.random() * 1.2,
+    alpha: 0.2 + Math.random() * 0.6,
+    twinkle: Math.random() * Math.PI * 2,
+  });
+}
+
+// ── Main render ───────────────────────────────────────────────
+let time = 0;
+let lastTime = 0;
+
+function render(ts) {
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  time += dt;
+
+  // Flicker
+  flickerTimer += dt;
+  if (flickerTimer > 0.08 + Math.random() * 0.12) {
+    flickerTimer = 0;
+    flickerState = Math.random() > 0.15;
+  }
+
+  if (gameState === 'playing') {
+    updatePlayer(dt);
+    updateHazards(dt);
+    updateParticles(dt);
+    updateCamera();
+  }
+
+  // ── Draw ──
+  // Sky gradient
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0,   '#060d18');
+  sky.addColorStop(0.6, '#0a1520');
+  sky.addColorStop(1,   '#0e1c28');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  ctx.save();
+  for (const s of STARS) {
+    const sx = ((s.x - camera.x * 0.15) % W + W) % W;
+    const alpha = s.alpha * (0.7 + 0.3 * Math.sin(time * 0.8 + s.twinkle));
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#d8e8f0';
+    ctx.beginPath();
+    ctx.arc(sx, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Far background buildings
+  ctx.save();
+  ctx.translate(-camera.x * 0.25, 0);
+  for (const b of buildings) {
+    if (b.layer !== 0) continue;
+    const bx = b.x;
+    const by = H - 60 - b.h;
+    ctx.fillStyle = '#0a1520';
+    ctx.fillRect(bx, by, b.w, b.h);
+    // dark windows
+    ctx.fillStyle = '#0e2030';
+    for (let wi = 0; wi < b.windows; wi++) {
+      const wx = bx + 8 + (wi % 3) * 22;
+      const wy = by + 10 + Math.floor(wi / 3) * 20;
+      if (Math.random() > 0.96) ctx.fillStyle = '#1a3040';
+      ctx.fillRect(wx, wy, 10, 8);
+    }
+  }
+  ctx.restore();
+
+  // Near background buildings
+  ctx.save();
+  ctx.translate(-camera.x * 0.45, 0);
+  for (const b of buildings) {
+    if (b.layer !== 1) continue;
+    const bx = b.x + 40;
+    const by = H - 60 - b.h - 20;
+    ctx.fillStyle = '#0c1825';
+    ctx.fillRect(bx, by, b.w, b.h + 20);
+    ctx.fillStyle = '#111e2c';
+    for (let wi = 0; wi < b.windows; wi++) {
+      const wx = bx + 6 + (wi % 3) * 22;
+      const wy = by + 8 + Math.floor(wi / 3) * 20;
+      const lit = Math.random() > 0.85;
+      ctx.fillStyle = lit ? '#1e3a50' : '#0e1e2e';
+      ctx.fillRect(wx, wy, 10, 8);
+    }
+  }
+  ctx.restore();
+
+  // Main game world
+  ctx.save();
+  ctx.translate(-camera.x, 0);
+
+  // Streetlights
+  for (const sl of streetlights) {
+    const flick = sl.flicker ? flickerState : true;
+    if (!sl.on || !flick) {
+      // Dark pole
+      ctx.fillStyle = '#1a2a3a';
+      ctx.fillRect(sl.x - 2, H - 160, 4, 100);
+      ctx.fillStyle = '#1a2a3a';
+      ctx.fillRect(sl.x - 10, H - 162, 20, 6);
+      continue;
+    }
+    // Light cone
+    const lx = sl.x;
+    const ly = H - 62;
+    const grad = ctx.createRadialGradient(lx, ly - 10, 0, lx, ly - 10, 110);
+    grad.addColorStop(0,   'rgba(200,180,80,0.22)');
+    grad.addColorStop(0.5, 'rgba(180,160,60,0.07)');
+    grad.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(lx, ly - 10);
+    ctx.lineTo(lx - 80, ly + 60);
+    ctx.lineTo(lx + 80, ly + 60);
+    ctx.closePath();
+    ctx.fill();
+    // Pole
+    ctx.fillStyle = '#2a3a4a';
+    ctx.fillRect(lx - 2, ly - 150, 4, 90);
+    // Lamp head
+    ctx.fillStyle = '#3a4a5a';
+    ctx.fillRect(lx - 14, ly - 162, 28, 8);
+    // Glow dot
+    ctx.fillStyle = '#e8d870';
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(lx, ly - 158, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Signs
+  for (const s of signs) {
+    ctx.fillStyle = '#1a2a3a';
+    ctx.fillRect(s.x - 2, s.y - 60, 4, 60);
+    ctx.fillStyle = '#162030';
+    ctx.fillRect(s.x - 40, s.y - 80, 80, 22);
+    ctx.strokeStyle = '#2a3a4a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(s.x - 40, s.y - 80, 80, 22);
+    ctx.fillStyle = '#6688aa';
+    ctx.font = '8px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.text, s.x, s.y - 65);
+    if (s.sub) {
+      ctx.fillStyle = '#334455';
+      ctx.font = '7px Courier New';
+      ctx.fillText(s.sub, s.x, s.y - 56);
+    }
+  }
+
+  // Ground / platforms
+  for (const p of platforms) {
+    if (p.type === 'ground') {
+      // Sidewalk
+      ctx.fillStyle = '#0e1c28';
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.fillStyle = '#162030';
+      ctx.fillRect(p.x, p.y, p.w, 6);
+      // Curb line
+      ctx.fillStyle = '#1e2e3e';
+      ctx.fillRect(p.x, p.y + 5, p.w, 2);
+      // Cracks / details every 80px
+      ctx.fillStyle = '#0c1824';
+      for (let cx = p.x + 40; cx < p.x + p.w - 20; cx += 80) {
+        ctx.fillRect(cx, p.y + 10, 1, 12);
+      }
+    } else {
+      // Ledge
+      ctx.fillStyle = '#162030';
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.fillStyle = '#1e3040';
+      ctx.fillRect(p.x, p.y, p.w, 3);
+    }
+  }
+
+  // Hazards
+  for (const h of hazards) {
+    if (h.type === 'debris') {
+      // Fallen sign / object
+      ctx.fillStyle = '#1a3040';
+      ctx.fillRect(h.x, h.y, h.w, h.h);
+      ctx.fillStyle = '#cc4444';
+      ctx.fillRect(h.x + 4, h.y + 4, 8, 8);
+      continue;
+    }
+    // Shadow figure
+    const pulse = 0.7 + 0.3 * Math.sin(time * 3 + h.t);
+    ctx.globalAlpha = pulse * 0.9;
+    ctx.fillStyle = h.label === 'figure' ? '#1a2f44' : '#0e1e2c';
+    // Body
+    ctx.fillRect(h.x, h.y + 4, h.w, h.h - 4);
+    // Head
+    ctx.beginPath();
+    ctx.arc(h.x + h.w / 2, h.y + 4, h.w / 2 - 1, 0, Math.PI * 2);
+    ctx.fill();
+    // Eyes (faint red glow)
+    ctx.globalAlpha = pulse * 0.5;
+    ctx.fillStyle = '#662222';
+    ctx.beginPath();
+    ctx.arc(h.x + h.w / 2 - 3, h.y + 3, 1.5, 0, Math.PI * 2);
+    ctx.arc(h.x + h.w / 2 + 3, h.y + 3, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Particles
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // End door
+  if (!player.dead || player.deathTimer < 1) {
+    const doorPulse = 0.7 + 0.3 * Math.sin(time * 2);
+    ctx.fillStyle = '#0e1c2a';
+    ctx.fillRect(endDoor.x, endDoor.y, endDoor.w, endDoor.h);
+    ctx.strokeStyle = `rgba(100,200,160,${doorPulse * 0.8})`;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(endDoor.x + 1, endDoor.y + 1, endDoor.w - 2, endDoor.h - 2);
+    // Glow
+    const dg = ctx.createRadialGradient(
+      endDoor.x + endDoor.w / 2, endDoor.y + endDoor.h / 2, 0,
+      endDoor.x + endDoor.w / 2, endDoor.y + endDoor.h / 2, 50
+    );
+    dg.addColorStop(0, `rgba(60,160,100,${doorPulse * 0.18})`);
+    dg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = dg;
+    ctx.fillRect(endDoor.x - 30, endDoor.y - 20, endDoor.w + 60, endDoor.h + 40);
+    // Knob
+    ctx.fillStyle = `rgba(100,200,150,${doorPulse})`;
+    ctx.beginPath();
+    ctx.arc(endDoor.x + 7, endDoor.y + endDoor.h / 2, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Player
+  if (!player.dead) {
+    drawPlayer();
+  } else {
+    // Death flash
+    const a = Math.max(0, 1 - player.deathTimer * 1.5);
+    ctx.globalAlpha = a;
+    drawPlayer();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore(); // end world translate
+
+  // Vignette
+  const vig = ctx.createRadialGradient(W/2, H/2, H * 0.25, W/2, H/2, H * 0.85);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,8,16,0.65)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+
+  // Fog / atmosphere bands
+  ctx.fillStyle = 'rgba(10,20,30,0.04)';
+  for (let fi = 0; fi < 3; fi++) {
+    const fy = 300 + fi * 60 + Math.sin(time * 0.3 + fi) * 10;
+    ctx.fillRect(0, fy, W, 30);
+  }
+
+  // Scanlines
+  ctx.fillStyle = 'rgba(0,0,0,0.03)';
+  for (let sl = 0; sl < H; sl += 3) {
+    ctx.fillRect(0, sl, W, 1);
+  }
+
+  requestAnimationFrame(render);
+}
+
+// ── Draw player (Anders Reale) ───────────────────────────────
+function drawPlayer() {
+  const px = player.x;
+  const py = player.y;
+  const f  = player.facing;
+  const wf = player.walkFrame;
+  const inAir = !player.onGround;
+
+  ctx.save();
+  ctx.translate(px + PLAYER_W / 2, py + PLAYER_H);
+  ctx.scale(f, 1);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,8,16,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 10, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.translate(0, -PLAYER_H);
+
+  // Legs
+  const legOffset = inAir ? 0 : (wf === 0 ? 2 : -2);
+  ctx.fillStyle = '#1e3040';
+  ctx.fillRect(-6, 16, 5, 12 + (wf === 0 ? legOffset : 0));
+  ctx.fillRect(1,  16, 5, 12 - (wf === 0 ? legOffset : 0));
+
+  // Shoes
+  ctx.fillStyle = '#2a1a0e';
+  ctx.fillRect(-7, 27 + (wf === 0 ? legOffset : 0), 7, 3);
+  ctx.fillRect(0,  27 - (wf === 0 ? legOffset : 0), 7, 3);
+
+  // Coat body
+  ctx.fillStyle = '#1a2e3c';
+  ctx.fillRect(-7, 6, 14, 13);
+
+  // Collar
+  ctx.fillStyle = '#223040';
+  ctx.fillRect(-5, 6, 10, 5);
+
+  // Arms
+  const armSwing = inAir ? 4 : (wf === 0 ? -3 : 3);
+  ctx.fillStyle = '#1a2e3c';
+  ctx.fillRect(-10, 8 + armSwing, 4, 9);
+  ctx.fillRect(6,   8 - armSwing, 4, 9);
+
+  // Head
+  ctx.fillStyle = '#c8a880';
+  ctx.fillRect(-5, -2, 10, 10);
+
+  // Hair
+  ctx.fillStyle = '#1a1008';
+  ctx.fillRect(-5, -2, 10, 4);
+  ctx.fillRect(-6, 0,  3, 4);
+
+  // Eyes
+  ctx.fillStyle = '#0a1820';
+  ctx.fillRect(0, 2, 2, 2);
+  ctx.fillRect(-4, 2, 2, 2);
+
+  // Breath puff (cold night air)
+  if (Math.sin(time * 1.5) > 0.5) {
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = '#a0b8c0';
+    ctx.beginPath();
+    ctx.arc(7, 4, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+// ── Loop / end triggers ───────────────────────────────────────
+function triggerLoopEnd() {
+  gameState = 'looping';
+
+  if (day >= 7) {
+    // Final loop → ending
+    showEnding();
+    return;
+  }
+
+  day++;
+  document.getElementById('dayNumber').textContent = `DAY ${day}`;
+
+  const loopOverlay = document.getElementById('loopOverlay');
+  document.getElementById('loopDayLabel').textContent = `day ${day} begins`;
+  document.getElementById('loopMsg').textContent = LOOP_MSGS[day - 1] || 'the loop resets.';
+  document.getElementById('loopHint').textContent = HINTS[day - 1] || '';
+  loopOverlay.classList.add('visible');
+}
+
+function showEnding() {
+  const endEl = document.getElementById('endingOverlay');
+  document.getElementById('endText').innerHTML =
+    `The loop breaks on the seventh night.<br><br>` +
+    `Anders stands at the door that was always open.<br>` +
+    `He remembers every version of the street, every fall,<br>` +
+    `every shadow that wasn't a shadow.<br><br>` +
+    `Briar Hollow holds its breath.<br><br>` +
+    `He steps through.<br><br>` +
+    `<span style="color:#334455;font-size:10px;letter-spacing:3px">FIN</span>`;
+  endEl.classList.add('visible');
+  gameState = 'ending';
+}
+
+function startNewLoop() {
+  buildLevel(day);
+  resetPlayer();
+  camera.x = 0;
+  particles = [];
+  gameState = 'playing';
+
+  if (day === 1) {
+    setTimeout(() => showNarrative("midnight. briar hollow is quiet."), 1200);
+  } else {
+    setTimeout(() => {
+      const hint = HINTS[day - 1];
+      if (hint) showNarrative(hint);
+    }, 900);
+  }
+}
+
+// ── Input ─────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === ' ' || e.key === 'ArrowUp') jumpPressed = true;
+
+  // State transitions
+  if (gameState === 'title') {
+    document.getElementById('overlay').classList.add('hidden');
+    setTimeout(() => {
+      day = 1;
+      document.getElementById('dayNumber').textContent = 'DAY 1';
+      startNewLoop();
+    }, 900);
+    return;
+  }
+
+  if (gameState === 'looping') {
+    document.getElementById('loopOverlay').classList.remove('visible');
+    setTimeout(() => startNewLoop(), 300);
+    return;
+  }
+
+  if (gameState === 'ending') {
+    // Full restart
+    document.getElementById('endingOverlay').classList.remove('visible');
+    day = 1;
+    document.getElementById('dayNumber').textContent = 'DAY 1';
+    setTimeout(() => startNewLoop(), 400);
+    gameState = 'playing';
+    return;
+  }
+});
+
+document.addEventListener('keyup', e => {
+  keys[e.key] = false;
+  if (e.key === ' ' || e.key === 'ArrowUp') jumpPressed = false;
+});
+
+// Prevent spacebar page scroll
+window.addEventListener('keydown', e => {
+  if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+    e.preventDefault();
+  }
+});
+
+// ── Boot ──────────────────────────────────────────────────────
+buildLevel(1); // pre-build so level exists
+requestAnimationFrame(ts => { lastTime = ts; render(ts); });
+</script>
+</body>
+</html>
